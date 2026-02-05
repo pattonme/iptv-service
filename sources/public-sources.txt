@@ -1,0 +1,8 @@
+https://raw.githubusercontent.com/iptv-org/iptv/master/channels/cn.m3u
+https://raw.githubusercontent.com/arutaku/IPTV/main/m3u/zh-CN.m3u
+https://raw.githubusercontent.com/wangchunming/2020/master/iptv/m3u/cctv.m3u
+https://raw.githubusercontent.com/wangchunming/2020/master/iptv/m3u/satellite.m3u
+https://raw.githubusercontent.com/iptv-org/iptv/master/channels/cn/Beijing.m3u
+https://raw.githubusercontent.com/iptv-org/iptv/master/channels/cn/Shanghai.m3u
+https://raw.githubusercontent.com/iptv-org/iptv/master/channels/cn/Guangdong.m3u
+https://raw.githubusercontent.com/iptv-org/iptv/master/channels/cn/Zhejiang.m3u
