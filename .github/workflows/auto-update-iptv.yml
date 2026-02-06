@@ -12,7 +12,7 @@ jobs:
 
       - name: 执行你的IPTV验证脚本
         run: |
-          # 这里是你原来的脚本，用来生成 dist/iptv-valid.m3u
+          # 这里是你原来的脚本
           echo "执行你的验证脚本..."
           mkdir -p dist
           echo "#EXTM3U" > dist/iptv-valid.m3u
