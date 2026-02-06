@@ -1,4 +1,4 @@
-name: 自动更新并验证IPTV信源
+name: Update and Verify IPTV Sources
 on:
   schedule:
     - cron: '0 */6 * * *'
@@ -7,17 +7,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 检出代码
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 执行你的IPTV验证脚本
+      - name: Run IPTV Verification Script
         run: |
-          # 这里是你原来的脚本
-          echo "执行你的验证脚本..."
+          echo "Running your verification script..."
           mkdir -p dist
           echo "#EXTM3U" > dist/iptv-valid.m3u
 
-      - name: 提交并推送更新
+      - name: Commit and Push Updates
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
@@ -25,5 +24,5 @@ jobs:
           git config --global user.email "github-actions@github.com"
           git remote set-url origin https://x-access-token:${PAT_TOKEN}@github.com/pattonme/iptv-service.git
           git add .
-          git commit -m "自动更新IPTV信源 $(date +'%Y-%m-%d %H:%M:%S')" || echo "无更改"
+          git commit -m "Auto-update IPTV sources $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes"
           git push origin HEAD:main
