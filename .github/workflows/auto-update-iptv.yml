@@ -20,6 +20,10 @@ jobs:
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
+          # ====== 新增的调试命令 ======
+          echo "当前仓库变量值: ${{ github.repository }}"
+          echo "令牌变量名: PAT_TOKEN"
+          # ====== 原有命令 ======
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "github-actions@github.com"
           git remote set-url origin https://x-access-token:${PAT_TOKEN}@github.com/pattonme/iptv-service.git
