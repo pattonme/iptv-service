@@ -23,7 +23,7 @@ jobs:
         run: |
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "github-actions@github.com"
-          git remote set-url origin https://x-access-token:${PAT_TOKEN}@github.com/${{ github.repository }}.git
+          git remote set-url origin https://x-access-token:${PAT_TOKEN}@github.com/pattonme/iptv-service.git
           git add .
           git commit -m "自动更新IPTV信源 $(date +'%Y-%m-%d %H:%M:%S')" || echo "无更改"
           git push origin HEAD:main
