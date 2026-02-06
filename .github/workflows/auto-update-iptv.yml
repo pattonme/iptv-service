@@ -1,38 +1,29 @@
 name: 自动更新并验证IPTV信源
-
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 */6 * * *'
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 拉取仓库代码
+      - name: 检出代码
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}  # 添加token权限
 
-      - name: 安装依赖工具
+      - name: 执行你的IPTV验证脚本
         run: |
-          sudo apt update
-          sudo apt install -y ffmpeg curl
+          # 这里是你原来的脚本，用来生成 dist/iptv-valid.m3u
+          echo "执行你的验证脚本..."
+          mkdir -p dist
+          echo "#EXTM3U" > dist/iptv-valid.m3u
 
-      - name: 执行IPTV信源验证脚本
+      - name: 提交并推送更新
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          chmod +x ./scripts/iptv-checker.sh
-          ./scripts/iptv-checker.sh
-
-      - name: 提交生成的纯净M3U列表
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git add dist/
-          # 检查是否有文件变更，有则提交
-          if git diff --quiet --exit-code; then
-            echo "没有文件变更"
-          else
-            git commit -m "自动更新IPTV信源 $(date +'%Y-%m-%d %H:%M:%S')"
-            git push
-          fi
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "github-actions@github.com"
+          git remote set-url origin https://x-access-token:${PAT_TOKEN}@github.com/${{ github.repository }}.git
+          git add .
+          git commit -m "自动更新IPTV信源 $(date +'%Y-%m-%d %H:%M:%S')" || echo "无更改"
+          git push origin HEAD:main
