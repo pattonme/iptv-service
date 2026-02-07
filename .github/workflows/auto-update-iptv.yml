@@ -7,20 +7,26 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions: write-all
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
           
-      - run: sudo apt install -y curl dos2unix
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y curl dos2unix
       
-      - run: |
+      - name: Generate IPTV list
+        run: |
+          # 创建dist目录
           mkdir -p dist
-          # 1. 拉取3个源，保证300+频道数量
+          
+          # 拉取3个稳定的IPTV源
           curl -sL "https://iptv-org.github.io/iptv/countries/cn.m3u" | dos2unix > /tmp/iptv_all.m3u
           curl -sL "https://cdn.jsdelivr.net/gh/Free-IPTV/IPTV@master/playlist.m3u" | dos2unix >> /tmp/iptv_all.m3u
           curl -sL "https://raw.githubusercontent.com/arutaku/IPTV/main/m3u/zh-CN.m3u" | dos2unix >> /tmp/iptv_all.m3u
           
-          # 2. 核心去重+排序逻辑（无额外过滤）
+          # 核心逻辑：去重+排序，保证300+频道
           awk '
             /^#EXTINF/ {
               line=$0;
@@ -54,10 +60,10 @@ jobs:
             }
           ' /tmp/iptv_all.m3u
           
-          # 3. 防0频道兜底（EOF顶格，无缩进）
+          # 防0频道兜底（EOF完全顶格，无任何缩进）
           new_count=$(grep -c "^#EXTINF" /tmp/iptv_new.m3u)
           if [ $new_count -lt 50 ]; then
-            echo "⚠️ 应急兜底：启用10个优质保底频道"
+            echo "⚠️ 启用保底频道列表"
             cat > /tmp/iptv_new.m3u << 'EOF'
 #EXTM3U
 #EXTINF:-1,CCTV-1 综合
@@ -84,13 +90,14 @@ EOF
             new_count=$(grep -c "^#EXTINF" /tmp/iptv_new.m3u)
           fi
           
-          # 4. 写入最终文件
+          # 写入最终文件
           cp /tmp/iptv_new.m3u dist/iptv-valid.m3u
-          echo "✅ 运行完成！生成 $new_count 个有效频道"
+          echo "✅ 生成 $new_count 个有效频道"
 
-      - run: |
-          git config --global user.name "bot"
-          git config --global user.email "bot@github.com"
+      - name: Push to repository
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
           git add dist/
-          git commit -m "稳定版：300+频道+EOF顶格+防0兜底 $(date +%s)" || echo "无更新"
-          git push origin main -f
+          git commit -m "Update IPTV list: $(date +%Y-%m-%d %H:%M:%S)" || echo "No changes to commit"
+          git push origin main
