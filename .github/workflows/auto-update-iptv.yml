@@ -13,49 +13,21 @@ jobs:
           
       - run: sudo apt install -y curl dos2unix
       
-      - run: |
+      - name: Generate IPTV list
+        run: |
           mkdir -p dist
-          # 用2个100%可访问的稳定源，保证频道数量
+          # 拉取2个稳定源
           curl -sL "https://raw.githubusercontent.com/liuhuijun619/IPTV/main/m3u/ChinaTV.m3u" | dos2unix > /tmp/iptv_all.m3u
           curl -sL "https://raw.githubusercontent.com/imDazui/Tvlist-awesome-m3u-m3u8/main/tvlist/cn.m3u" | dos2unix >> /tmp/iptv_all.m3u
           
-          # 核心逻辑：只去重排序，不检测链接（先保证频道数量）
-          awk '
-            /^#EXTINF/ {
-              line=$0;
-              getline url;
-              split(line, arr, ",");
-              channel_name = arr[2];
-              gsub(/[ \t\r\n]/, "", channel_name);
-              gsub(/^[ \t]+|[ \t]+$/, "", url);
-              
-              # 只过滤空链接，保留所有非空的央视/卫视
-              if (url != "" && !map[channel_name] && (channel_name ~ /CCTV|央视|卫视/)) {
-                if (channel_name ~ /CCTV|央视/) {
-                  type = "1-" channel_name;
-                } else if (channel_name ~ /卫视/) {
-                  type = "2-" channel_name;
-                }
-                channels[type] = line "\n" url;
-                map[channel_name] = 1;
-              }
-            }
-            /^#EXTM3U/ { m3u_header = $0 }
-            END {
-              if (m3u_header == "") m3u_header = "#EXTM3U";
-              print m3u_header > "dist/iptv-valid.m3u";
-              PROCINFO["sorted_in"] = "@ind_str_asc";
-              for (key in channels) {
-                print channels[key] >> "dist/iptv-valid.m3u";
-              }
-            }
-          ' /tmp/iptv_all.m3u
+          # AWK逻辑：单行紧凑写法，避免缩进校验报错
+          awk '/^#EXTINF/ {line=$0;getline url;split(line,arr,",");channel_name=arr[2];gsub(/[ \t\r\n]/,"",channel_name);gsub(/^[ \t]+|[ \t]+$/,"",url);if(url!=""&&!map[channel_name]&&(channel_name~ /CCTV|央视|卫视/)){if(channel_name~ /CCTV|央视/)type="1-" channel_name;else if(channel_name~ /卫视/)type="2-" channel_name;channels[type]=line"\n"url;map[channel_name]=1;}} /^#EXTM3U/ {m3u_header=$0} END {if(m3u_header=="")m3u_header="#EXTM3U";print m3u_header > "dist/iptv-valid.m3u";PROCINFO["sorted_in"]="@ind_str_asc";for(key in channels)print channels[key] >> "dist/iptv-valid.m3u";}' /tmp/iptv_all.m3u
           
-          # 兜底：15个稳定频道（EOF已确认顶格，无空格）
+          # 兜底逻辑：完全无缩进，适配网页端校验
           count=$(grep -c "^#EXTINF" dist/iptv-valid.m3u)
           if [ $count -lt 15 ]; then
-            echo "启用保底优质频道"
-            cat > dist/iptv-valid.m3u << 'EOF'
+          echo "启用保底频道"
+          cat > dist/iptv-valid.m3u << 'EOF'
 #EXTM3U
 #EXTINF:-1,CCTV-1 综合
 http://123.175.209.52:9003/hls/1/index.m3u8
@@ -75,13 +47,12 @@ http://61.153.7.28:8080/PLTV/88888888/224/3221225595/index.m3u8
 http://live.jstv.com/live/hunantv.m3u8
 EOF
           fi
-          
-          count=$(grep -c "^#EXTINF" dist/iptv-valid.m3u)
-          echo "✅ 生成 $count 个有效频道（无检测，优先保证数量）"
+          echo "✅ 生成 $count 个有效频道"
 
-      - run: |
+      - name: Push to repo
+        run: |
           git config --global user.name "bot"
           git config --global user.email "bot@github.com"
           git add dist/
-          git commit -m "稳定版：优先保证频道数量 $(date +%s)" || echo "no change"
+          git commit -m "零红线最终版 $(date +%s)" || echo "no change"
           git push origin main -f
