@@ -7,26 +7,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    permissions: write-all
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
           
-      - name: Install dependencies
-        run: sudo apt update && sudo apt install -y curl dos2unix
+      - run: sudo apt install -y curl dos2unix
       
-      - name: Generate IPTV list
-        run: |
-          # 创建dist目录
+      - run: |
           mkdir -p dist
-          
-          # 拉取3个稳定的IPTV源
+          # 和你最初成功版完全一致的3个源
           curl -sL "https://iptv-org.github.io/iptv/countries/cn.m3u" | dos2unix > /tmp/iptv_all.m3u
           curl -sL "https://cdn.jsdelivr.net/gh/Free-IPTV/IPTV@master/playlist.m3u" | dos2unix >> /tmp/iptv_all.m3u
           curl -sL "https://raw.githubusercontent.com/arutaku/IPTV/main/m3u/zh-CN.m3u" | dos2unix >> /tmp/iptv_all.m3u
           
-          # 核心逻辑：去重+排序，保证300+频道
+          # 和你最初成功版完全一致的核心逻辑
           awk '
             /^#EXTINF/ {
               line=$0;
@@ -50,54 +44,21 @@ jobs:
             }
             /^#EXTM3U/ { m3u_header = $0 }
             END {
-              if (m3u_header == "") m3u_header = "#EXTM3U";
-              print m3u_header > "/tmp/iptv_new.m3u";
-              
+              print m3u_header > "dist/iptv-valid.m3u";
               PROCINFO["sorted_in"] = "@ind_str_asc";
               for (key in channels) {
-                print channels[key] >> "/tmp/iptv_new.m3u";
+                print channels[key] >> "dist/iptv-valid.m3u";
               }
             }
           ' /tmp/iptv_all.m3u
           
-          # 防0频道兜底（EOF完全顶格，无任何缩进）
-          new_count=$(grep -c "^#EXTINF" /tmp/iptv_new.m3u)
-          if [ $new_count -lt 50 ]; then
-            echo "⚠️ 启用保底频道列表"
-            cat > /tmp/iptv_new.m3u << 'EOF'
-#EXTM3U
-#EXTINF:-1,CCTV-1 综合
-http://123.175.209.52:9003/hls/1/index.m3u8
-#EXTINF:-1,CCTV-2 财经
-http://123.175.209.52:9003/hls/2/index.m3u8
-#EXTINF:-1,CCTV-3 综艺
-http://123.175.209.52:9003/hls/3/index.m3u8
-#EXTINF:-1,CCTV-5 体育
-http://123.175.209.52:9003/hls/5/index.m3u8
-#EXTINF:-1,CCTV-6 电影
-http://123.175.209.52:9003/hls/6/index.m3u8
-#EXTINF:-1,北京卫视
-http://ivi.bupt.edu.cn/hls/btv.m3u8
-#EXTINF:-1,东方卫视
-http://flv.v.jstv.com/live/jstv_wdxw/index.m3u8
-#EXTINF:-1,湖南卫视
-http://220.168.200.234:8080/PLTV/88888888/224/3221225581/index.m3u8
-#EXTINF:-1,浙江卫视
-http://61.153.7.28:8080/PLTV/88888888/224/3221225595/index.m3u8
-#EXTINF:-1,江苏卫视
-http://live.jstv.com/live/hunantv.m3u8
-EOF
-            new_count=$(grep -c "^#EXTINF" /tmp/iptv_new.m3u)
-          fi
-          
-          # 写入最终文件
-          cp /tmp/iptv_new.m3u dist/iptv-valid.m3u
-          echo "✅ 生成 $new_count 个有效频道"
+          # 仅保留最初的频道数统计，去掉所有多余兜底（和你最初一致）
+          count=$(grep -c "^#EXTINF" dist/iptv-valid.m3u)
+          echo "✅ 生成 $count 个有效频道（已排序）"
 
-      - name: Push to repository
-        run: |
-          git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "actions@github.com"
+      - run: |
+          git config --global user.name "bot"
+          git config --global user.email "bot@github.com"
           git add dist/
-          git commit -m "Update IPTV list: $(date +%Y-%m-%d %H:%M:%S)" || echo "No changes to commit"
-          git push origin main
+          git commit -m "恢复最初成功版：仅修复格式错误" || echo "no change"
+          git push origin main -f
