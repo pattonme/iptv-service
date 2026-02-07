@@ -1,37 +1,36 @@
-name: Update and Verify IPTV Sources
-on: workflow_dispatch
+name: Auto Update IPTV
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
 
 jobs:
-  update-iptv:
+  run:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
-
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          persist-credentials: false
-          fetch-depth: 0
-
-      - name: Install Dependencies
-        run: |
-          sudo apt update -y
-          sudo apt install -y ffmpeg curl
-
-      - name: Run IPTV Script
-        run: |
-          mkdir -p scripts dist
-          chmod 777 ./scripts/iptv-checker.sh
-          /bin/bash ./scripts/iptv-checker.sh
-
-      - name: Push Updates
-        env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
-        run: |
-          git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "bot@noreply.github.com"
-          git add dist/
-          git commit -m "Auto-update IPTV $(date)" || echo "No changes"
-          git push https://$PAT_TOKEN@github.com/pattonme/iptv-service.git main --force
+          token: ${{ github.token }}
+      - run: sudo apt install -y curl
+      - run: |
+          mkdir -p scripts && echo '#!/bin/bash
+          export TZ="Asia/Shanghai"
+          SOURCES=("https://iptv-org.github.io/iptv/countries/cn.m3u" "https://cdn.jsdelivr.net/gh/Free-IPTV/IPTV@master/playlist.m3u")
+          mkdir -p dist && echo "#EXTM3U" > dist/iptv-valid.m3u
+          declare -A map
+          for url in "${SOURCES[@]}"; do
+            curl -sL $url | while read -r line; do
+              if [[ "$line" =~ ^#EXTINF ]]; then
+                read -r u && n=$(echo $line | awk -F, "{print \$2}" | tr -d " ")
+                [[ -z "$u" || -n "${map[$n]}" ]] && continue
+                map[$n]=1 && echo -e "$line\n$u" >> dist/iptv-valid.m3u
+              fi
+            done
+          done
+          echo "✅ 频道数: $(grep -c "^#EXTINF" dist/iptv-valid.m3u)"' > scripts/iptv-checker.sh
+      - run: chmod +x scripts/iptv-checker.sh && bash scripts/iptv-checker.sh
+      - run: |
+          git config --global user.name "bot"
+          git config --global user.email "bot@github.com"
+          git add dist/ && git commit -m "update" || echo "无更新"
+          git push origin main
