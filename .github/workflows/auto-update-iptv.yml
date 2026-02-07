@@ -1,49 +1,37 @@
 name: Update and Verify IPTV Sources
-
-# 触发条件：手动触发 + main分支提交
-on:
-  workflow_dispatch:
-  push:
-    branches: [ main ]
+on: workflow_dispatch
 
 jobs:
   update-iptv:
     runs-on: ubuntu-latest
-    
+    defaults:
+      run:
+        shell: bash
+
     steps:
-      # 1. 拉取仓库代码
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          persist-credentials: false  # 禁用默认凭证，使用自定义Token
-          
-      # 2. 安装依赖（ffmpeg用于验证IPTV源）
+          persist-credentials: false
+          fetch-depth: 0
+
       - name: Install Dependencies
         run: |
-          sudo apt update && sudo apt install -y ffmpeg
-          
-      # 3. 赋予脚本执行权限并运行验证脚本
-      - name: Run IPTV Checker
+          sudo apt update -y
+          sudo apt install -y ffmpeg curl
+
+      - name: Run IPTV Script
         run: |
-          chmod +x iptv-checker.sh
-          ./iptv-checker.sh
-          
-      # 4. 提交并推送更新（核心修复：正确传递Token）
-      - name: Commit and Push Updates
+          mkdir -p scripts dist
+          chmod 777 ./scripts/iptv-checker.sh
+          /bin/bash ./scripts/iptv-checker.sh
+
+      - name: Push Updates
         env:
-          # 正确读取Secrets中的Token并赋值给环境变量
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
-          REPO_URL: https://github.com/pattonme/iptv-service.git
         run: |
-          # 配置Git用户信息
           git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # 添加修改的文件
-          git add .
-          
-          # 提交（无变更时不报错）
-          git commit -m "Auto-update IPTV sources $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
-          
-          # 关键修复：使用环境变量拼接带Token的推送地址
-          git push https://$PAT_TOKEN@github.com/pattonme/iptv-service.git HEAD:main --force
+          git config --global user.email "bot@noreply.github.com"
+          git add dist/
+          git commit -m "Auto-update IPTV $(date)" || echo "No changes"
+          git push https://$PAT_TOKEN@github.com/pattonme/iptv-service.git main --force
