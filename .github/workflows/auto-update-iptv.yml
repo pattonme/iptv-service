@@ -7,58 +7,61 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions: write-all
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
-          
-      - run: sudo apt install -y curl dos2unix
-      
-      - run: |
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y curl dos2unix
+
+      - name: Generate IPTV list
+        run: |
+          # 1. 准备目录
           mkdir -p dist
-          # 和你最初成功版完全一致的3个源
+          
+          # 2. 拉取稳定源
           curl -sL "https://iptv-org.github.io/iptv/countries/cn.m3u" | dos2unix > /tmp/iptv_all.m3u
           curl -sL "https://cdn.jsdelivr.net/gh/Free-IPTV/IPTV@master/playlist.m3u" | dos2unix >> /tmp/iptv_all.m3u
           curl -sL "https://raw.githubusercontent.com/arutaku/IPTV/main/m3u/zh-CN.m3u" | dos2unix >> /tmp/iptv_all.m3u
           
-          # 和你最初成功版完全一致的核心逻辑
+          # 3. 去重排序生成频道
           awk '
             /^#EXTINF/ {
-              line=$0;
-              getline url;
-              split(line, arr, ",");
-              channel_name = arr[2];
+              line=$0; getline url;
+              split(line, arr, ","); channel_name = arr[2];
               gsub(/[ \t\r\n]/, "", channel_name);
               gsub(/^[ \t]+|[ \t]+$/, "", url);
-              
               if (url != "" && !map[channel_name]) {
-                if (channel_name ~ /CCTV|央视/) {
-                  type = "1-" channel_name;
-                } else if (channel_name ~ /卫视/) {
-                  type = "2-" channel_name;
-                } else {
-                  type = "3-" channel_name;
-                }
+                if (channel_name ~ /CCTV|央视/) type = "1-" channel_name;
+                else if (channel_name ~ /卫视/) type = "2-" channel_name;
+                else type = "3-" channel_name;
                 channels[type] = line "\n" url;
                 map[channel_name] = 1;
               }
             }
             /^#EXTM3U/ { m3u_header = $0 }
             END {
+              if (m3u_header == "") m3u_header = "#EXTM3U";
               print m3u_header > "dist/iptv-valid.m3u";
               PROCINFO["sorted_in"] = "@ind_str_asc";
-              for (key in channels) {
-                print channels[key] >> "dist/iptv-valid.m3u";
-              }
+              for (key in channels) print channels[key] >> "dist/iptv-valid.m3u";
             }
           ' /tmp/iptv_all.m3u
           
-          # 仅保留最初的频道数统计，去掉所有多余兜底（和你最初一致）
+          # 4. 检查频道数量，少于200个直接报错（红标）
           count=$(grep -c "^#EXTINF" dist/iptv-valid.m3u)
-          echo "✅ 生成 $count 个有效频道（已排序）"
+          echo "生成 $count 个有效频道"
+          if [ $count -lt 200 ]; then
+            echo "❌ 频道数量不足，触发错误"
+            exit 1
+          fi
 
-      - run: |
-          git config --global user.name "bot"
-          git config --global user.email "bot@github.com"
+      - name: Push changes
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
           git add dist/
-          git commit -m "恢复最初成功版：仅修复格式错误" || echo "no change"
-          git push origin main -f
+          git commit -m "Update IPTV list: $(date +%Y-%m-%d %H:%M:%S)" || echo "No changes"
+          git push origin main
