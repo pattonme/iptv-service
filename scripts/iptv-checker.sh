@@ -1,15 +1,15 @@
 #!/bin/bash
-# GitHub IPTV自动化脚本
+# GitHub IPTV自动化脚本（已降低验证规则）
 
 SOURCE_FILE="./sources/public-sources.txt"
 TEMP_M3U="./dist/iptv-temp.m3u"
 FINAL_M3U="./dist/iptv-valid.m3u"
 LOG_FILE="./dist/iptv-verify.log"
-CONNECT_TIMEOUT=8
-STREAM_TIMEOUT=10  # 新增：初始化流超时时间
-MIN_BITRATE=500000
-SUPPORT_CODECS=("h264" "hevc" "mpeg4")
-SUPPORT_RESOLUTIONS=("720p" "1080p")
+CONNECT_TIMEOUT=20  # 延长连接超时
+STREAM_TIMEOUT=25   # 延长流超时时间
+MIN_BITRATE=200000  # 大幅降低最低码率要求
+SUPPORT_CODECS=("h264" "hevc" "mpeg4" "mpeg2video")  # 增加支持的编码格式
+SUPPORT_RESOLUTIONS=("480p" "720p" "1080p")  # 增加480p分辨率支持
 GROUP_RULES=(
     "卫视:央视|CCTV|中央电视台|湖南卫视|浙江卫视|江苏卫视|东方卫视|北京卫视|广东卫视|山东卫视|河南卫视"
     "地方台:北京|上海|广东|深圳|江苏|浙江|四川|重庆|天津|湖北|湖南|河南|河北|福建|安徽"
@@ -42,7 +42,7 @@ echo "[$(date +'%Y-%m-%d %H:%M:%S')] 信源拉取完成" >> $LOG_FILE
 
 # 2. 验证并筛选源
 declare -A channel_map
-echo "[$(date +'%Y-%m-%d %H:%M:%S')] 筛选规则: 720p/1080p + 500Kbps" >> $LOG_FILE
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] 筛选规则: 480p/720p/1080p + 200Kbps" >> $LOG_FILE
 
 while IFS= read -r line; do
     if [[ "$line" =~ ^#EXTINF ]]; then
@@ -63,8 +63,8 @@ while IFS= read -r line; do
         [[ $width -ge 1280 && $width -lt 1920 ]] && res="720p"
         [[ $width -ge 1920 ]] && res="1080p"
 
-        # 验证是否符合规则
-        if [[ " ${SUPPORT_RESOLUTIONS[@]} " =~ " $res " && $bitrate -ge $MIN_BITRATE && " ${SUPPORT_CODECS[@]} " =~ " $codec " ]]; then
+        # 验证是否符合规则（已大幅放宽）
+        if [[ " ${SUPPORT_RESOLUTIONS[@]} " =~ " $res " && $bitrate -ge $MIN_BITRATE && ( " ${SUPPORT_CODECS[@]} " =~ " $codec " || -z "$codec" ) ]]; then
             group="其他"
             for rule in "${GROUP_RULES[@]}"; do
                 group_name=$(echo "$rule" | awk -F ':' '{print $1}')
