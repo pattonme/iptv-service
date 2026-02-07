@@ -10,18 +10,20 @@ jobs:
     permissions: write-all
     steps:
       - uses: actions/checkout@v4
-          
-      - run: sudo apt install -y curl
       
-      - run: |
+      - name: 直接拉取官方源
+        run: |
+          # 直接拉取官方中国频道列表，跳过所有mkdir、合并、去重的坑
+          curl -sL "https://raw.githubusercontent.com/iptv-org/iptv/master/countries/cn.m3u" > iptv-valid.m3u
+          # 确保dist目录存在
           mkdir -p dist
-          # 直接拉取现成的可用M3U文件（跳过所有解析坑）
-          curl -sL "https://raw.githubusercontent.com/iptv-org/iptv/master/countries/cn.m3u" > dist/iptv-valid.m3u
-          # 统计频道数，验证结果
+          mv iptv-valid.m3u dist/
+          # 验证频道数量
           count=$(grep -c "^#EXTINF" dist/iptv-valid.m3u)
           echo "✅ 生成 $count 个频道"
 
-      - run: |
+      - name: 强制推送
+        run: |
           git config --global user.name "bot"
           git config --global user.email "bot@github.com"
           git add dist/
