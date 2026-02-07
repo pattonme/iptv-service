@@ -15,32 +15,60 @@ jobs:
       
       - run: |
           mkdir -p dist
-          # 拉取多个稳定源，这是能生成几百条频道的核心
+          # 1. 拉取源（和成功版完全一致）
           curl -sL "https://iptv-org.github.io/iptv/countries/cn.m3u" | dos2unix > /tmp/iptv_all.m3u
           curl -sL "https://cdn.jsdelivr.net/gh/Free-IPTV/IPTV@master/playlist.m3u" | dos2unix >> /tmp/iptv_all.m3u
           curl -sL "https://raw.githubusercontent.com/arutaku/IPTV/main/m3u/zh-CN.m3u" | dos2unix >> /tmp/iptv_all.m3u
           
-          # 简单去重，保留第一个出现的频道（保证频道不重复）
+          # 2. 核心调整：过滤民族语言频道 + 保留稳定源
           awk '
             /^#EXTINF/ {
               line=$0;
               getline url;
-              if (!map[line]) {
-                print line >> "dist/iptv-valid.m3u";
-                print url >> "dist/iptv-valid.m3u";
-                map[line] = 1;
+              split(line, arr, ",");
+              channel_name = arr[2];
+              gsub(/[ \t\r\n]/, "", channel_name);
+              gsub(/^[ \t]+|[ \t]+$/, "", url);
+              
+              # 精确过滤：只保留普通话频道，排除民族语言/宗教/无关频道
+              if (channel_name ~ /CCTV|央视|卫视|中国|内地|新闻|体育|电影/ && 
+                  channel_name !~ /藏语|蒙语|维语|民族|ABN|测试|广告/ && url != "") {
+                # 稳定性检测：只保留响应时间<2秒的链接
+                cmd="curl -s -o /dev/null -w %{time_total} --connect-timeout 2 " url;
+                cmd | getline resp_time;
+                close(cmd);
+                if (resp_time < 2) {
+                  if (!map[channel_name]) {
+                    if (channel_name ~ /CCTV|央视/) {
+                      type = "1-" channel_name;
+                    } else if (channel_name ~ /卫视/) {
+                      type = "2-" channel_name;
+                    } else {
+                      type = "3-" channel_name;
+                    }
+                    channels[type] = line "\n" url;
+                    map[channel_name] = 1;
+                  }
+                }
               }
             }
-            /^#EXTM3U/ { if (!m3u) { print >> "dist/iptv-valid.m3u"; m3u=1 } }
+            /^#EXTM3U/ { m3u_header = $0 }
+            END {
+              print m3u_header > "dist/iptv-valid.m3u";
+              PROCINFO["sorted_in"] = "@ind_str_asc";
+              for (key in channels) {
+                print channels[key] >> "dist/iptv-valid.m3u";
+              }
+            }
           ' /tmp/iptv_all.m3u
           
-          # 统计频道数量，验证生成几百条
+          # 3. 验证
           count=$(grep -c "^#EXTINF" dist/iptv-valid.m3u)
-          echo "✅ 成功生成 $count 个有效频道（几百条）"
+          echo "✅ 优化后生成 $count 个稳定普通话频道（已排序）"
 
       - run: |
           git config --global user.name "bot"
           git config --global user.email "bot@github.com"
           git add dist/
-          git commit -m "成功版：生成几百条频道" || echo "no change"
+          git commit -m "成功版+修复卡顿+过滤民族台" || echo "no change"
           git push origin main -f
