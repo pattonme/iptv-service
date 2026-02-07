@@ -1,31 +1,51 @@
 name: Update and Verify IPTV Sources
 on:
+  # 每6小时自动执行一次
   schedule:
     - cron: '0 */6 * * *'
+  # 手动触发开关
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # 1. 拉取仓库代码（必须带完整历史）
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      # 2. 安装脚本依赖（ffmpeg/curl是验证流的核心工具）
+      - name: Install required dependencies
+        run: |
+          sudo apt update -y
+          sudo apt install -y ffmpeg curl
+
+      # 3. 执行IPTV验证脚本（赋予执行权限+运行）
       - name: Run IPTV Verification Script
         run: |
+          # 确保脚本有执行权限
+          chmod +x ./scripts/iptv-checker.sh
+          # 运行脚本并输出日志（方便排查问题）
           bash ./scripts/iptv-checker.sh
+          # 打印日志内容，便于调试
+          cat ./dist/iptv-verify.log
 
+      # 4. 提交并推送更新（处理无变更场景，避免中断）
       - name: Commit and Push Updates
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          # 1. 清除任何可能的旧配置
-          git remote remove origin 2>/dev/null || true
-          # 2. 使用完整URL（含令牌）添加远程仓库
-          git remote add origin https://${{ secrets.PAT_TOKEN }}@github.com/pattonme/iptv-service.git
-          # 3. 配置Git用户
+          # 配置Git用户信息（必须）
           git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "github-actions@github.com"
-          # 4. 添加、提交并强制推送
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 添加所有变更文件
           git add .
-          git commit -m "Auto-update IPTV sources $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes"
-          git push -u origin HEAD:main --force
+          
+          # 提交（无变更时仅提示，不中断流程）
+          git commit -m "Auto-update IPTV sources $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+          
+          # 推送更新（使用PAT_TOKEN鉴权，强制推送main分支）
+          git push https://${{ secrets.PAT_TOKEN }}@github.com/pattonme/iptv-service.git HEAD:main --force
