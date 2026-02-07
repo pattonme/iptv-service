@@ -5,32 +5,56 @@ on:
     - cron: '0 0 * * *'
 
 jobs:
-  run:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           token: ${{ github.token }}
-      - run: sudo apt install -y curl
-      - run: |
-          mkdir -p scripts && echo '#!/bin/bash
-          export TZ="Asia/Shanghai"
-          SOURCES=("https://iptv-org.github.io/iptv/countries/cn.m3u" "https://cdn.jsdelivr.net/gh/Free-IPTV/IPTV@master/playlist.m3u")
-          mkdir -p dist && echo "#EXTM3U" > dist/iptv-valid.m3u
-          declare -A map
+          
+      - name: Install Tools
+        run: sudo apt update -y && sudo apt install -y curl dos2unix
+
+      - name: Run Core Logic
+        run: |
+          mkdir -p dist
+          echo "#EXTM3U" > dist/iptv-valid.m3u
+          declare -A channel_map
+          
+          # 拉取并合并源
+          SOURCES=(
+            "https://iptv-org.github.io/iptv/countries/cn.m3u"
+            "https://cdn.jsdelivr.net/gh/Free-IPTV/IPTV@master/playlist.m3u"
+          )
+          
           for url in "${SOURCES[@]}"; do
-            curl -sL $url | while read -r line; do
-              if [[ "$line" =~ ^#EXTINF ]]; then
-                read -r u && n=$(echo $line | awk -F, "{print \$2}" | tr -d " ")
-                [[ -z "$u" || -n "${map[$n]}" ]] && continue
-                map[$n]=1 && echo -e "$line\n$u" >> dist/iptv-valid.m3u
-              fi
-            done
+            # 拉取源并处理换行
+            curl -sL "$url" | dos2unix > /tmp/temp.m3u
+            
+            # 逐行解析（用awk替代shell循环，避免read坑）
+            awk '
+              BEGIN { FS=","; OFS="\n" }
+              /^#EXTINF/ { 
+                name = $2; gsub(/[ \t\r\n]/, "", name); 
+                getline url; gsub(/^[ \t]+|[ \t]+$/, "", url);
+                if (url != "" && !map[name]) {
+                  print $0, url >> "dist/iptv-valid.m3u";
+                  map[name] = 1;
+                }
+              }
+            ' /tmp/temp.m3u
+            
+            rm -f /tmp/temp.m3u
           done
-          echo "✅ 频道数: $(grep -c "^#EXTINF" dist/iptv-valid.m3u)"' > scripts/iptv-checker.sh
-      - run: chmod +x scripts/iptv-checker.sh && bash scripts/iptv-checker.sh
-      - run: |
+          
+          # 统计频道数
+          count=$(grep -c "^#EXTINF" dist/iptv-valid.m3u)
+          echo "✅ 生成 $count 个有效频道"
+
+      - name: Push
+        run: |
           git config --global user.name "bot"
           git config --global user.email "bot@github.com"
-          git add dist/ && git commit -m "update" || echo "无更新"
+          git add dist/
+          git commit -m "update $(date)" || echo "no change"
           git push origin main
