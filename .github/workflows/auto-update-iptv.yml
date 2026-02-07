@@ -12,13 +12,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
           
-      - run: sudo apt install -y curl dos2unix
+      - run: sudo apt update && sudo apt install -y curl dos2unix
       
       - run: |
           mkdir -p dist
-          # 拉取多个稳定源，这是能生成几百条频道的核心
+          # 初始化频道文件，避免残留内容导致格式错
+          > dist/iptv-valid.m3u
+          
+          # 拉取多个稳定源，替换成经测试可访问的源
           curl -sL "https://iptv-org.github.io/iptv/countries/cn.m3u" | dos2unix > /tmp/iptv_all.m3u
-          curl -sL "https://cdn.jsdelivr.net/gh/Free-IPTV/IPTV@master/playlist.m3u" | dos2unix >> /tmp/iptv_all.m3u
+          curl -sL "https://raw.githubusercontent.com/liuhuijun619/IPTV/main/m3u/ChinaTV.m3u" | dos2unix >> /tmp/iptv_all.m3u
           curl -sL "https://raw.githubusercontent.com/arutaku/IPTV/main/m3u/zh-CN.m3u" | dos2unix >> /tmp/iptv_all.m3u
           
           # 简单去重，保留第一个出现的频道（保证频道不重复）
@@ -38,6 +41,23 @@ jobs:
           # 统计频道数量，验证生成几百条
           count=$(grep -c "^#EXTINF" dist/iptv-valid.m3u)
           echo "✅ 成功生成 $count 个有效频道（几百条）"
+          
+          # 兜底：如果频道数太少，补充稳定频道
+          if [ $count -lt 50 ]; then
+            echo "⚠️ 频道数不足，补充保底频道"
+            cat >> dist/iptv-valid.m3u << 'EOF'
+#EXTINF:-1,CCTV-1 综合
+http://123.175.209.52:9003/hls/1/index.m3u8
+#EXTINF:-1,CCTV-2 财经
+http://123.175.209.52:9003/hls/2/index.m3u8
+#EXTINF:-1,CCTV-5 体育
+http://123.175.209.52:9003/hls/5/index.m3u8
+#EXTINF:-1,北京卫视
+http://ivi.bupt.edu.cn/hls/btv.m3u8
+#EXTINF:-1,东方卫视
+http://flv.v.jstv.com/live/jstv_wdxw/index.m3u8
+EOF
+          fi
 
       - run: |
           git config --global user.name "bot"
