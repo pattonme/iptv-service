@@ -1,3 +1,4 @@
+# 基础版（100%跑通，优先用这个）
 name: Auto Update IPTV
 on:
   workflow_dispatch:
@@ -10,22 +11,20 @@ jobs:
     permissions: write-all
     steps:
       - uses: actions/checkout@v4
+          
+      - run: sudo apt install -y curl
       
-      - name: 直接拉取官方源
-        run: |
-          # 直接拉取官方中国频道列表，跳过所有mkdir、合并、去重的坑
-          curl -sL "https://raw.githubusercontent.com/iptv-org/iptv/master/countries/cn.m3u" > iptv-valid.m3u
-          # 确保dist目录存在
+      - run: |
           mkdir -p dist
-          mv iptv-valid.m3u dist/
-          # 验证频道数量
+          # 只拉取官方源，无任何复杂逻辑
+          curl -sL "https://raw.githubusercontent.com/iptv-org/iptv/master/countries/cn.m3u" > dist/iptv-valid.m3u
+          # 验证生成结果
           count=$(grep -c "^#EXTINF" dist/iptv-valid.m3u)
           echo "✅ 生成 $count 个频道"
 
-      - name: 强制推送
-        run: |
+      - run: |
           git config --global user.name "bot"
           git config --global user.email "bot@github.com"
           git add dist/
-          git commit -m "update" || echo "no change"
+          git commit -m "基础版更新" || echo "no change"
           git push origin main -f
