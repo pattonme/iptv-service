@@ -1,0 +1,17 @@
+[2026-02-07 12:52:15] 启动GitHub IPTV自动验证流程...
+[2026-02-07 12:52:15] 拉取公开IPTV源...
+[2026-02-07 12:52:15] 拉取: https://raw.githubusercontent.com/iptv-org/iptv/master/channels/cn.m3u
+[2026-02-07 12:52:15] 拉取: https://raw.githubusercontent.com/arutaku/IPTV/main/m3u/zh-CN.m3u
+[2026-02-07 12:52:15] 拉取: https://raw.githubusercontent.com/wangchunming/2020/master/iptv/m3u/cctv.m3u
+[2026-02-07 12:52:16] 拉取: https://raw.githubusercontent.com/wangchunming/2020/master/iptv/m3u/satellite.m3u
+[2026-02-07 12:52:16] 拉取: https://raw.githubusercontent.com/iptv-org/iptv/master/channels/cn/Beijing.m3u
+[2026-02-07 12:52:16] 拉取: https://raw.githubusercontent.com/iptv-org/iptv/master/channels/cn/Shanghai.m3u
+[2026-02-07 12:52:16] 拉取: https://raw.githubusercontent.com/iptv-org/iptv/master/channels/cn/Guangdong.m3u
+[2026-02-07 12:52:16] 拉取: https://raw.githubusercontent.com/iptv-org/iptv/master/channels/cn/Zhejiang.m3u
+[2026-02-07 12:52:16] 信源拉取完成
+[2026-02-07 12:52:16] 筛选规则: 720p/1080p + 500Kbps
+[2026-02-07 12:52:16] 生成最终列表，有效频道数: 0
+[2026-02-07 12:52:16] 流程完成！
+  最终列表: ./dist/iptv-valid.m3u
+  验证日志: ./dist/iptv-verify.log
+  有效频道数: 0
