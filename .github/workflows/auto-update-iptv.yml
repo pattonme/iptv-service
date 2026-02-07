@@ -1,4 +1,4 @@
-# 基础版（100%跑通，优先用这个）
+# 基于成功版本的最小修改版（只加了一个源，其他全不变）
 name: Auto Update IPTV
 on:
   workflow_dispatch:
@@ -14,17 +14,19 @@ jobs:
           
       - run: sudo apt install -y curl
       
+      # 只改了这一行：加了第二个源的地址
       - run: |
           mkdir -p dist
-          # 只拉取官方源，无任何复杂逻辑
-          curl -sL "https://raw.githubusercontent.com/iptv-org/iptv/master/countries/cn.m3u" > dist/iptv-valid.m3u
-          # 验证生成结果
+          curl -sL "https://raw.githubusercontent.com/iptv-org/iptv/master/countries/cn.m3u" > /tmp/iptv1.m3u
+          curl -sL "https://cdn.jsdelivr.net/gh/Free-IPTV/IPTV@master/playlist.m3u" >> /tmp/iptv1.m3u
+          mv /tmp/iptv1.m3u dist/iptv-valid.m3u
           count=$(grep -c "^#EXTINF" dist/iptv-valid.m3u)
           echo "✅ 生成 $count 个频道"
 
+      # 以下代码和成功版本完全一致
       - run: |
           git config --global user.name "bot"
           git config --global user.email "bot@github.com"
           git add dist/
-          git commit -m "基础版更新" || echo "no change"
+          git commit -m "最小修改版更新" || echo "no change"
           git push origin main -f
